@@ -14,7 +14,8 @@ export async function POST(request: Request) {
   try {
     const result = await validatePartnerCoverage(parsed.data.partner, parsed.data.zipCode);
     return NextResponse.json(result, { status: result.valid ? 200 : 404 });
-  } catch {
+  } catch (error) {
+    console.error('Smart Homeowner availability lookup failed:', error);
     return NextResponse.json({ valid: false, reason: 'We could not check availability right now. Please try again.' }, { status: 503 });
   }
 }
