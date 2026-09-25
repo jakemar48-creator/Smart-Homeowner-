@@ -31,7 +31,7 @@ const commonQuestions = [
 
 function Brand() { return <div className="brand"><img src="/smart-homeowner-logo.png" alt="Smart Homeowner" /></div>; }
 
-export default function StartPage() {
+export default function StartPage({ basePreview = false }: { basePreview?: boolean }) {
   const router = useRouter();
   const [partner, setPartner] = useState('');
   const [partnerServices, setPartnerServices] = useState<Service[]>([]);
@@ -51,6 +51,22 @@ export default function StartPage() {
     const campaignPartner = params.get('partner') ?? (pathPartner !== 'start' && pathPartner !== 'thankyou' ? pathPartner : '');
     setPartner(campaignPartner);
     setFbclid(params.get('fbclid') ?? 'none');
+
+    if (basePreview) {
+      void fetch('/api/location', { cache: 'no-store' })
+        .then(async (response) => response.ok ? await response.json() as ApproximateLocation : { city: null })
+        .then((location) => {
+          if (location.city) {
+            setLocationCity(location.city);
+            setForm((current) => current.city ? current : { ...current, city: location.city ?? '' });
+          }
+        })
+        .finally(() => {
+          setPartnerServices(['Roofing']);
+          setLoadingCampaign(false);
+        });
+      return;
+    }
 
     if (!campaignPartner) {
       setLoadingCampaign(false);
@@ -117,6 +133,12 @@ export default function StartPage() {
     if (form.phone.replace(/\D/g, '').length < 10) return setError('Enter a valid phone number.');
     if (!/^\d{5}$/.test(form.zip_code)) return setError('Enter a valid five-digit ZIP code.');
 
+    if (basePreview) {
+      window.sessionStorage.setItem('smart-homeowner-receipt', JSON.stringify({ leadId: 'SO-PREVIEW', contractor: 'Smart Homeowner', services: selectedServices, preview: true }));
+      router.replace('/thankyou');
+      return;
+    }
+
     const payload: WebhookPayload = {
       homeowner: answers.homeowner, roof_condition: answers.roof_condition, roof_age: answers.roof_age, timeline: answers.timeline,
       first_name: form.first_name, last_name: form.last_name, phone: form.phone, email: form.email, street_address: form.street_address,
@@ -146,7 +168,7 @@ export default function StartPage() {
   const renderQuestion = (question: { key: string; title: string; options: string[] }) => <section className="screen question-screen"><h1>{question.title}</h1><div className="choices">{question.options.map((option) => <button type="button" className={answers[question.key] === option ? 'choice selected' : 'choice'} key={option} onClick={() => chooseAnswer(question.key, option)}><span>{option}</span><ChevronRight /></button>)}</div></section>;
   const locationLabel = locationCity ? `${locationCity} homeowners` : 'Homeowners';
 
-  return <main className="app-shell has-roof-background"><header><Brand /><span className="secure"><ShieldCheck /> Secure request</span></header><main className="content">{showIntro && <section className="landing-copy"><p>{locationLabel}</p><h2>Claim your free {estimateCopy} in a few quick steps.</h2></section>}<section className="progress compact-progress" aria-label={`Progress: ${progress}%`}><i><i style={{ width: `${progress}%` }} /></i></section><div className="funnel-card project-flow" aria-live="polite">
+  return <main className={`app-shell ${basePreview ? 'base-preview' : 'has-roof-background'}`}><header><Brand /><span className="secure"><ShieldCheck /> Secure request</span></header><main className="content">{showIntro && <section className="landing-copy"><p>{locationLabel}</p><h2>Claim your free {estimateCopy} in a few quick steps.</h2></section>}<section className="progress compact-progress" aria-label={`Progress: ${progress}%`}><i><i style={{ width: `${progress}%` }} /></i></section><div className="funnel-card project-flow" aria-live="polite">
     {loadingCampaign && <section className="screen loading-screen"><p>Loading your request…</p></section>}
     {!loadingCampaign && current === 'services' && partnerServices.length > 1 && <section className="screen"><h1>What can we help you with?</h1><div className="service-grid">{partnerServices.map((service) => { const Icon = serviceDetails[service].icon; const selected = selectedServices.includes(service); return <button type="button" className={selected ? 'service selected' : 'service'} key={service} onClick={() => toggleService(service)} aria-pressed={selected}><span className="service-icon"><Icon /></span><span><b>{service}</b><small>{serviceDetails[service].description}</small></span><span className="tick">{selected && <Check />}</span></button>; })}</div><button type="button" className="primary-action" onClick={continueServices}>Continue <ArrowRight /></button></section>}
     {!loadingCampaign && selectedQuestions.find((question) => question.key === current) && renderQuestion(selectedQuestions.find((question) => question.key === current)!)}
