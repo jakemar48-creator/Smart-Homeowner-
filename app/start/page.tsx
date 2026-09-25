@@ -32,6 +32,7 @@ function validZip(value: string) { return /^\d{5}$/.test(value); }
 
 export default function StartPage() {
   const [partner, setPartner] = useState('');
+  const [fbclid, setFbclid] = useState('none');
   const [step, setStep] = useState(0);
   const [zipCode, setZipCode] = useState('');
   const [availability, setAvailability] = useState<Availability | null>(null);
@@ -44,7 +45,9 @@ export default function StartPage() {
   const [success, setSuccess] = useState<{ leadId: string; contractor: string } | null>(null);
 
   useEffect(() => {
-    setPartner(new URLSearchParams(window.location.search).get('partner') ?? '');
+    const params = new URLSearchParams(window.location.search);
+    setPartner(params.get('partner') ?? '');
+    setFbclid(params.get('fbclid') ?? 'none');
   }, []);
 
   const selectedQuestions = selectedServices.flatMap((service) => serviceDetails[service].questions);
@@ -78,10 +81,10 @@ export default function StartPage() {
     if (Object.values(form).some((value) => !value.trim())) return setError('Please complete every contact field.');
     if (!/^\S+@\S+\.\S+$/.test(form.email)) return setError('Enter a valid email address.');
     if (form.phone.replace(/\D/g, '').length < 10) return setError('Enter a valid phone number.');
-    const payload: WebhookPayload = { homeowner: answers.homeowner, roof_condition: answers.roof_condition, roof_age: answers.roof_age, timeline: answers.timeline, ...form, zip_code: zipCode, selected_services: selectedServices.join(', '), window_intent: answers.window_intent, window_quantity: answers.window_quantity, siding_condition: answers.siding_condition, siding_scope: answers.siding_scope };
+    const payload: WebhookPayload = { homeowner: answers.homeowner, roof_condition: answers.roof_condition, roof_age: answers.roof_age, timeline: answers.timeline, ...form, zip_code: zipCode, selected_services: selectedServices.join(', '), window_intent: answers.window_intent, window_quantity: answers.window_quantity, siding_condition: answers.siding_condition, siding_scope: answers.siding_scope, fbclid };
     const campaignParams = new URLSearchParams(window.location.search);
-    const attribution = Object.fromEntries(['fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'meta_campaign_id', 'meta_adset_id', 'meta_ad_id']
-      .flatMap((key) => { const value = campaignParams.get(key); return value ? [[key, value]] : []; }));
+    const attribution = { ...Object.fromEntries(['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'meta_campaign_id', 'meta_adset_id', 'meta_ad_id']
+      .flatMap((key) => { const value = campaignParams.get(key); return value ? [[key, value]] : []; })), fbclid };
     setSubmitting(true);
     try {
       const response = await fetch('/api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ partner, zipCode, services: selectedServices, payload, attribution }) });
@@ -91,7 +94,7 @@ export default function StartPage() {
     } catch { setError('We could not submit your request. Please try again.'); } finally { setSubmitting(false); }
   }
 
-  if (success) return <main className="app-shell"><header><Brand /></header><section className="success" aria-live="polite"><span className="success-icon"><Check /></span><p className="eyebrow">REQUEST RECEIVED</p><h1>You’re on the list.</h1><p>We’ve received your request for <b>{selectedServices.join(', ')}</b> help. A local team member will contact you shortly.</p><div className="receipt"><span>Reference</span><b>{success.leadId}</b><span>Matched partner</span><b>{success.contractor}</b></div><p className="preview-note">Preview mode: the lead was not sent to a CRM.</p></section></main>;
+  if (success) return <main className="app-shell"><header><Brand /></header><section className="success" aria-live="polite"><span className="success-icon"><Check /></span><p className="eyebrow">REQUEST RECEIVED</p><h1>You’re on the list.</h1><p>We’ve received your request for <b>{selectedServices.join(', ')}</b> help. A local team member will contact you shortly.</p><div className="receipt"><span>Reference</span><b>{success.leadId}</b><span>Matched partner</span><b>{success.contractor}</b></div></section></main>;
 
   const renderQuestion = (question: { key: string; title: string; options: string[] }) => <section className="screen"><p className="eyebrow">A few quick details</p><h1>{question.title}</h1><p className="intro-copy">Choose the answer that best fits your project.</p><div className="choices">{question.options.map((option) => <button type="button" className={answers[question.key] === option ? 'choice selected' : 'choice'} key={option} onClick={() => chooseAnswer(question.key, option)}><span>{option}</span><ChevronRight /></button>)}</div></section>;
 

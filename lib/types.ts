@@ -35,6 +35,7 @@ export type WebhookPayload = {
   siding_condition?: string;
   siding_scope?: string;
   selected_services: string;
+  fbclid: string;
 };
 
 export type GhlWebhookPayload = WebhookPayload & {
