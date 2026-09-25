@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   try {
     const result = await getPartnerServices(partner.data);
     if (!result.valid) return NextResponse.json({ valid: false, reason: 'This campaign is not currently available.' }, { status: 404 });
-    return NextResponse.json({ valid: true, services: result.services, contractor: result.contractor });
+    return NextResponse.json({ valid: true, services: result.services });
   } catch (error) {
     console.error('Smart Homeowner partner lookup failed:', error);
     return NextResponse.json({ valid: false, reason: 'We could not load this request right now. Please try again.' }, { status: 503 });
