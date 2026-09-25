@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await getPartner(parsed.data.partner);
-    return NextResponse.json(result, { status: result.valid ? 200 : 404 });
+    return NextResponse.json({ valid: result.valid, reason: result.reason }, { status: result.valid ? 200 : 404 });
   } catch (error) {
     console.error('Smart Homeowner availability lookup failed:', error);
     return NextResponse.json({ valid: false, reason: 'We could not check availability right now. Please try again.' }, { status: 503 });
