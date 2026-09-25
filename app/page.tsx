@@ -1,3 +1,3 @@
-import StartPage from './start/page';
+import { redirect } from 'next/navigation';
 
-export default function Home() { return <StartPage basePreview />; }
+export default function Home() { redirect('/roofing'); }
