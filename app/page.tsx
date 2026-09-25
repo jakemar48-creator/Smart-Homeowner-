@@ -1,3 +1,3 @@
-import { redirect } from 'next/navigation';
+import StartPage from './start/page';
 
-export default function Home() { redirect('/start?partner=roof-depot'); }
+export default function Home() { return <StartPage basePreview />; }
