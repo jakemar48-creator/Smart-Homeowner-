@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, CircleAlert, Home, House, Mail, MapPin, ShieldCheck, Wrench } from 'lucide-react';
 import type { Service, WebhookPayload } from '../../lib/types';
 
@@ -32,6 +33,7 @@ function validZip(value: string) { return /^\d{5}$/.test(value); }
 
 export default function StartPage() {
   const [partner, setPartner] = useState('');
+  const router = useRouter();
   const [fbclid, setFbclid] = useState('none');
   const [step, setStep] = useState(0);
   const [zipCode, setZipCode] = useState('');
@@ -42,7 +44,6 @@ export default function StartPage() {
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '', street_address: '', city: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState<{ leadId: string; contractor: string } | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -90,11 +91,10 @@ export default function StartPage() {
       const response = await fetch('/api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ partner, zipCode, services: selectedServices, payload, attribution }) });
       const result = await response.json();
       if (!response.ok) return setError(result.message ?? 'We could not submit your request. Please try again.');
-      setSuccess(result);
+      window.sessionStorage.setItem('smart-homeowner-receipt', JSON.stringify({ leadId: result.leadId, contractor: result.contractor, services: selectedServices }));
+      router.replace('/thankyou');
     } catch { setError('We could not submit your request. Please try again.'); } finally { setSubmitting(false); }
   }
-
-  if (success) return <main className="app-shell"><header><Brand /></header><section className="success" aria-live="polite"><span className="success-icon"><Check /></span><p className="eyebrow">REQUEST RECEIVED</p><h1>You’re on the list.</h1><p>We’ve received your request for <b>{selectedServices.join(', ')}</b> help. A local team member will contact you shortly.</p><div className="receipt"><span>Reference</span><b>{success.leadId}</b><span>Matched partner</span><b>{success.contractor}</b></div></section></main>;
 
   const renderQuestion = (question: { key: string; title: string; options: string[] }) => <section className="screen"><p className="eyebrow">A few quick details</p><h1>{question.title}</h1><p className="intro-copy">Choose the answer that best fits your project.</p><div className="choices">{question.options.map((option) => <button type="button" className={answers[question.key] === option ? 'choice selected' : 'choice'} key={option} onClick={() => chooseAnswer(question.key, option)}><span>{option}</span><ChevronRight /></button>)}</div></section>;
 
