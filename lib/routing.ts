@@ -1,12 +1,11 @@
-import { validatePartnerCoverage as validateDemoCoverage } from './demo-routing';
+import { getDemoPartner } from './demo-routing';
 import { getPartnerServices as getDemoPartnerServices } from './demo-routing';
 import { getSupabaseAdmin, hasSupabaseConfiguration } from './supabase-admin';
 import type { Contractor, Service } from './types';
 
-type CoverageResult = {
+type PartnerResult = {
   valid: boolean;
   reason?: string;
-  services: Service[];
   contractor?: Contractor;
 };
 
@@ -31,24 +30,21 @@ function useDemoRouting() {
     (process.env.NODE_ENV === 'development' && !hasSupabaseConfiguration());
 }
 
-export async function validatePartnerCoverage(partner: string, zipCode: string, services?: Service[]): Promise<CoverageResult> {
-  if (useDemoRouting()) return validateDemoCoverage(partner, zipCode, services);
+export async function getPartner(partner: string): Promise<PartnerResult> {
+  if (useDemoRouting()) return getDemoPartner(partner);
 
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('contractors')
-    .select('id, slug, name, active, ghl_location_id, ghl_webhook_url, service_areas!inner(zip_code, service, active)')
+    .select('id, slug, name, active, ghl_location_id, ghl_webhook_url')
     .eq('slug', partner)
     .eq('active', true)
-    .eq('service_areas.zip_code', zipCode)
-    .eq('service_areas.active', true)
     .maybeSingle();
 
-  if (error) throw new Error(`Could not verify coverage: ${error.message}`);
-  if (!data) return { valid: false, reason: 'This contractor is not currently available in your ZIP code.', services: [] };
+  if (error) throw new Error(`Could not load partner: ${error.message}`);
+  if (!data) return { valid: false, reason: 'This campaign is not currently available.' };
 
   const row = data as unknown as ContractorRow;
-  const availableServices = [...new Set(row.service_areas.map((area) => area.service))];
   const contractor: Contractor = {
     id: row.id,
     slug: row.slug,
@@ -58,11 +54,7 @@ export async function validatePartnerCoverage(partner: string, zipCode: string, 
     ghlWebhookUrl: row.ghl_webhook_url ?? undefined,
   };
 
-  if (services?.some((service) => !availableServices.includes(service))) {
-    return { valid: false, reason: `${contractor.name} is not currently available for every service you selected in this ZIP code.`, services: availableServices, contractor };
-  }
-
-  return { valid: true, contractor, services: availableServices };
+  return { valid: true, contractor };
 }
 
 export async function getPartnerServices(partner: string): Promise<PartnerServicesResult> {
