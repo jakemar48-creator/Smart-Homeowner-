@@ -6,6 +6,7 @@ export const demoContractors: Contractor[] = [
   { id: 'ctr_platinum', slug: 'platinum', name: 'Platinum Exteriors', active: true },
   { id: 'ctr_vesel', slug: 'vesel', name: 'Vesel Home Services', active: true },
   { id: 'ctr_gikas', slug: 'gikas', name: 'Gikas Roofing', active: true },
+  { id: 'ctr_olympus', slug: 'olympus', name: 'Olympus Home Services', active: true },
 ];
 
 export const demoServiceAreas: ServiceArea[] = [
@@ -18,6 +19,8 @@ export const demoServiceAreas: ServiceArea[] = [
   ...(['Roofing', 'Windows'] as Service[]).map((service) => ({ contractorId: 'ctr_platinum', zipCode: '48327', service, active: true })),
   ...(['Roofing', 'Siding'] as Service[]).map((service) => ({ contractorId: 'ctr_vesel', zipCode: '53154', service, active: true })),
   { contractorId: 'ctr_gikas', zipCode: '07430', service: 'Roofing', active: true },
+  // Test coverage only. Production coverage is managed in Supabase.
+  { contractorId: 'ctr_olympus', zipCode: '92504', service: 'Roofing', active: true },
 ];
 
 export function validatePartnerCoverage(partner: string, zipCode: string, services?: Service[]) {

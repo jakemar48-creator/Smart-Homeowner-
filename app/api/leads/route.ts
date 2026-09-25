@@ -9,7 +9,7 @@ const payloadSchema = z.object({
   homeowner: z.string().min(1), roof_condition: z.string().optional(), roof_age: z.string().optional(), timeline: z.string().min(1),
   first_name: z.string().trim().min(1), last_name: z.string().trim().min(1), phone: z.string().trim().min(10), email: z.string().email(),
   street_address: z.string().trim().min(1), city: z.string().trim().min(1), zip_code: z.string().regex(/^[0-9]{5}$/),
-  window_intent: z.string().optional(), window_quantity: z.string().optional(), siding_condition: z.string().optional(), siding_scope: z.string().optional(), selected_services: z.string().min(1),
+  window_intent: z.string().optional(), window_quantity: z.string().optional(), siding_condition: z.string().optional(), siding_scope: z.string().optional(), selected_services: z.string().min(1), fbclid: z.string().min(1),
 });
 const leadSchema = z.object({
   partner: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/),
