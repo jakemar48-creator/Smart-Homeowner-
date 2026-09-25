@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { validatePartnerCoverage, useDemoRouting } from '../../../lib/routing';
+import { getPartner, useDemoRouting } from '../../../lib/routing';
 import { getSupabaseAdmin } from '../../../lib/supabase-admin';
 import type { Attribution, GhlWebhookPayload, Service, WebhookPayload } from '../../../lib/types';
 
@@ -32,27 +32,28 @@ export async function POST(request: Request) {
   if (body.payload.zip_code !== body.zipCode) return NextResponse.json({ message: 'Your ZIP code could not be verified. Please try again.' }, { status: 400 });
 
   try {
-    const coverage = await validatePartnerCoverage(body.partner, body.zipCode, body.services as Service[]);
-    if (!coverage.valid || !coverage.contractor) return NextResponse.json({ message: coverage.reason ?? 'We could not verify availability.' }, { status: 422 });
+    const partner = await getPartner(body.partner);
+    if (!partner.valid || !partner.contractor) return NextResponse.json({ message: partner.reason ?? 'This campaign is not currently available.' }, { status: 404 });
+    const contractor = partner.contractor;
 
     if (useDemoRouting()) {
-      return NextResponse.json({ leadId: `SO-${Date.now().toString().slice(-7)}`, contractor: coverage.contractor.name, deliveryStatus: 'preview_not_sent' }, { status: 201 });
+      return NextResponse.json({ leadId: `SO-${Date.now().toString().slice(-7)}`, contractor: contractor.name, deliveryStatus: 'preview_not_sent' }, { status: 201 });
     }
 
     const supabase = getSupabaseAdmin();
     const attribution = (body.attribution ?? {}) as Attribution;
     const { data: lead, error: leadError } = await supabase.from('leads').insert({
-      partner: body.partner, contractor_id: coverage.contractor.id, zip_code: body.zipCode, selected_services: body.services,
+      partner: body.partner, contractor_id: contractor.id, zip_code: body.zipCode, selected_services: body.services,
       answers: body.payload, contact: { first_name: body.payload.first_name, last_name: body.payload.last_name, phone: body.payload.phone, email: body.payload.email, street_address: body.payload.street_address, city: body.payload.city },
       attribution, status: 'received', ghl_delivery_status: 'pending',
     }).select('id').single();
     if (leadError || !lead) throw new Error('Lead could not be stored.');
 
-    const { data: delivery } = await supabase.from('lead_deliveries').insert({ lead_id: lead.id, contractor_id: coverage.contractor.id, attempt_number: 1, status: 'pending' }).select('id').single();
-    if (!coverage.contractor.ghlWebhookUrl) {
+    const { data: delivery } = await supabase.from('lead_deliveries').insert({ lead_id: lead.id, contractor_id: contractor.id, attempt_number: 1, status: 'pending' }).select('id').single();
+    if (!contractor.ghlWebhookUrl) {
       await supabase.from('leads').update({ status: 'delivery_failed', ghl_delivery_status: 'failed', ghl_response: { error: 'No GHL webhook configured' } }).eq('id', lead.id);
       if (delivery) await supabase.from('lead_deliveries').update({ status: 'failed', error_message: 'No GHL webhook configured', completed_at: new Date().toISOString() }).eq('id', delivery.id);
-      return NextResponse.json({ leadId: lead.id, contractor: coverage.contractor.name, deliveryStatus: 'failed' }, { status: 201 });
+      return NextResponse.json({ leadId: lead.id, contractor: contractor.name, deliveryStatus: 'failed' }, { status: 201 });
     }
 
     try {
@@ -60,29 +61,29 @@ export async function POST(request: Request) {
         ...(body.payload as WebhookPayload),
         lead_id: lead.id,
         partner: body.partner,
-        contractor: coverage.contractor.name,
+        contractor: contractor.name,
         selected_service_names: body.services.join(', '),
         submitted_at: new Date().toISOString(),
         smart_homeowner: {
           lead_id: lead.id,
           partner: body.partner,
-          contractor: coverage.contractor.name,
+          contractor: contractor.name,
           selected_services: body.services as Service[],
           attribution,
         },
       };
-      const deliveryResult = await deliverWebhook(coverage.contractor.ghlWebhookUrl, webhookPayload);
+      const deliveryResult = await deliverWebhook(contractor.ghlWebhookUrl, webhookPayload);
       const completedAt = new Date().toISOString();
       const responseInfo = { status: deliveryResult.status, body: deliveryResult.responseText };
       await supabase.from('leads').update({ status: deliveryResult.ok ? 'delivered' : 'delivery_failed', ghl_delivery_status: deliveryResult.ok ? 'succeeded' : 'failed', ghl_delivery_at: completedAt, ghl_response: responseInfo }).eq('id', lead.id);
       if (delivery) await supabase.from('lead_deliveries').update({ status: deliveryResult.ok ? 'succeeded' : 'failed', response_status: deliveryResult.status, response_body: deliveryResult.responseText, completed_at: completedAt }).eq('id', delivery.id);
-      return NextResponse.json({ leadId: lead.id, contractor: coverage.contractor.name, deliveryStatus: deliveryResult.ok ? 'sent' : 'failed' }, { status: 201 });
+      return NextResponse.json({ leadId: lead.id, contractor: contractor.name, deliveryStatus: deliveryResult.ok ? 'sent' : 'failed' }, { status: 201 });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Webhook delivery failed';
       const completedAt = new Date().toISOString();
       await supabase.from('leads').update({ status: 'delivery_failed', ghl_delivery_status: 'failed', ghl_response: { error: errorMessage } }).eq('id', lead.id);
       if (delivery) await supabase.from('lead_deliveries').update({ status: 'failed', error_message: errorMessage, completed_at: completedAt }).eq('id', delivery.id);
-      return NextResponse.json({ leadId: lead.id, contractor: coverage.contractor.name, deliveryStatus: 'failed' }, { status: 201 });
+      return NextResponse.json({ leadId: lead.id, contractor: contractor.name, deliveryStatus: 'failed' }, { status: 201 });
     }
   } catch {
     return NextResponse.json({ message: 'We could not submit your request. Please try again.' }, { status: 503 });

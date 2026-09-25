@@ -23,13 +23,10 @@ export const demoServiceAreas: ServiceArea[] = [
   { contractorId: 'ctr_olympus', zipCode: '92504', service: 'Roofing', active: true },
 ];
 
-export function validatePartnerCoverage(partner: string, zipCode: string, services?: Service[]) {
+export function getDemoPartner(partner: string) {
   const contractor = demoContractors.find((item) => item.slug === partner && item.active);
-  if (!contractor) return { valid: false, reason: 'This campaign is not currently available.', services: [] as Service[] };
-  const available = demoServiceAreas.filter((area) => area.contractorId === contractor.id && area.zipCode === zipCode && area.active).map((area) => area.service);
-  if (!available.length) return { valid: false, reason: `${contractor.name} does not currently serve this ZIP code.`, services: [] as Service[] };
-  if (services?.some((service) => !available.includes(service))) return { valid: false, reason: `${contractor.name} is not currently available for every service you selected in this ZIP code.`, services: available };
-  return { valid: true, contractor, services: [...new Set(available)] };
+  if (!contractor) return { valid: false, reason: 'This campaign is not currently available.' };
+  return { valid: true, contractor };
 }
 
 export function getPartnerServices(partner: string) {
