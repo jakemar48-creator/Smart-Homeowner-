@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, ChevronRight, CircleAlert, Home, House, Mail, ShieldCheck, Wrench } from 'lucide-react';
 import type { Service, WebhookPayload } from '../../lib/types';
+import MetaPixel from '../components/meta-pixel';
 
 type Answers = Record<string, string>;
 type PartnerDetails = { valid: boolean; reason?: string; services?: Service[] };
@@ -31,7 +32,7 @@ const commonQuestions = [
 
 function Brand() { return <div className="brand"><img src="/smart-homeowner-logo.png" alt="Smart Homeowner" /></div>; }
 
-export default function StartPage({ basePreview = false }: { basePreview?: boolean }) {
+export default function StartPage({ basePreview = false, plainTemplate = false }: { basePreview?: boolean; plainTemplate?: boolean }) {
   const router = useRouter();
   const [partner, setPartner] = useState('');
   const [partnerServices, setPartnerServices] = useState<Service[]>([]);
@@ -47,7 +48,8 @@ export default function StartPage({ basePreview = false }: { basePreview?: boole
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const pathPartner = window.location.pathname.split('/').filter(Boolean)[0];
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    const pathPartner = pathSegments[0] === 'roofing' ? pathSegments[1] : pathSegments[0];
     const campaignPartner = params.get('partner') ?? (pathPartner !== 'start' && pathPartner !== 'thankyou' ? pathPartner : '');
     setPartner(campaignPartner);
     setFbclid(params.get('fbclid') ?? 'none');
@@ -102,7 +104,7 @@ export default function StartPage({ basePreview = false }: { basePreview?: boole
   const screens = ['services', ...selectedQuestions.map((question) => question.key), ...commonQuestions.map((question) => question.key), 'contact'];
   const current = screens[step] ?? 'services';
   const isOlympus = partner === 'olympus';
-  const estimateCopy = isOlympus ? 'metal roof estimate' : 'roof estimate';
+  const estimateCopy = plainTemplate ? 'roof estimate' : isOlympus ? 'metal roof estimate' : 'roof estimate';
   const progress = Math.max(8, Math.round(((step + 1) / screens.length) * 100));
   const showIntro = loadingCampaign || current === 'services' || (selectedServices.length === 1 && step === 1);
 
@@ -168,12 +170,12 @@ export default function StartPage({ basePreview = false }: { basePreview?: boole
   const renderQuestion = (question: { key: string; title: string; options: string[] }) => <section className="screen question-screen"><h1>{question.title}</h1><div className="choices">{question.options.map((option) => <button type="button" className={answers[question.key] === option ? 'choice selected' : 'choice'} key={option} onClick={() => chooseAnswer(question.key, option)}><span>{option}</span><ChevronRight /></button>)}</div></section>;
   const locationLabel = locationCity ? `${locationCity} homeowners` : 'Homeowners';
 
-  return <main className={`app-shell ${basePreview ? 'base-preview' : 'has-roof-background'}`}><header><Brand /><span className="secure"><ShieldCheck /> Secure request</span></header><div className="header-progress" role="progressbar" aria-label={`Request progress: ${progress}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></div><main className="content">{showIntro && <section className="landing-copy"><p>{locationLabel}</p><h2>Claim your free {estimateCopy} in a few quick steps.</h2></section>}<div className="funnel-card project-flow" aria-live="polite">
+  return <><MetaPixel event="PageView" /><main className={`app-shell ${basePreview || plainTemplate ? 'base-preview' : 'has-roof-background'}`}><header><Brand /><span className="secure"><ShieldCheck /> Secure request</span></header><div className="header-progress" role="progressbar" aria-label={`Request progress: ${progress}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></div><main className="content">{showIntro && <section className="landing-copy"><p>{locationLabel}</p><h2>Claim your free {estimateCopy} in a few quick steps.</h2></section>}<div className="funnel-card project-flow" aria-live="polite">
     {loadingCampaign && <section className="screen loading-screen"><p>Loading your request…</p></section>}
     {!loadingCampaign && current === 'services' && partnerServices.length > 1 && <section className="screen"><h1>What can we help you with?</h1><div className="service-grid">{partnerServices.map((service) => { const Icon = serviceDetails[service].icon; const selected = selectedServices.includes(service); return <button type="button" className={selected ? 'service selected' : 'service'} key={service} onClick={() => toggleService(service)} aria-pressed={selected}><span className="service-icon"><Icon /></span><span><b>{service}</b><small>{serviceDetails[service].description}</small></span><span className="tick">{selected && <Check />}</span></button>; })}</div><button type="button" className="primary-action" onClick={continueServices}>Continue <ArrowRight /></button></section>}
     {!loadingCampaign && selectedQuestions.find((question) => question.key === current) && renderQuestion(selectedQuestions.find((question) => question.key === current)!)}
     {!loadingCampaign && commonQuestions.find((question) => question.key === current) && renderQuestion(commonQuestions.find((question) => question.key === current)!)}
     {!loadingCampaign && current === 'contact' && <section className="screen contact-screen"><h1>Where is the project located?</h1><p className="intro-copy">We’ll use this to make sure we have the right project details.</p><form className="contact-form" onSubmit={submit}><div className="form-grid"><label>First name<input value={form.first_name} onChange={(event) => contactValue('first_name', event.target.value)} autoComplete="given-name" /></label><label>Last name<input value={form.last_name} onChange={(event) => contactValue('last_name', event.target.value)} autoComplete="family-name" /></label><label>Phone number<input value={form.phone} onChange={(event) => contactValue('phone', event.target.value)} type="tel" inputMode="tel" autoComplete="tel" /></label><label>Email address<input value={form.email} onChange={(event) => contactValue('email', event.target.value)} type="email" inputMode="email" autoComplete="email" /></label><label className="wide">Street address<input value={form.street_address} onChange={(event) => contactValue('street_address', event.target.value)} autoComplete="street-address" /></label><label>City<input value={form.city} onChange={(event) => contactValue('city', event.target.value)} autoComplete="address-level2" /></label><label>ZIP code<input value={form.zip_code} onChange={(event) => contactValue('zip_code', event.target.value.replace(/\D/g, '').slice(0, 5))} inputMode="numeric" autoComplete="postal-code" /></label></div><button disabled={submitting} className="primary-action">{submitting ? 'Submitting…' : <>Submit my request <ArrowRight /></>}</button><p className="consent">By submitting, you agree that Smart Homeowner and its local service partner may contact you about this request by phone, text, or email. Consent is not a condition of purchase.</p></form></section>}
     {error && <p className="error" role="alert"><CircleAlert />{error}</p>}
-  </div></main><footer><span><Mail /> Your details stay private</span></footer></main>;
+  </div></main><footer><span><Mail /> Your details stay private</span></footer></main></>;
 }
