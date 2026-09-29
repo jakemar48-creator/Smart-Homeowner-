@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, ChevronRight, CircleAlert, Home, House, Mail, ShieldCheck, Wrench } from 'lucide-react';
 import type { Service, WebhookPayload } from '../../lib/types';
 import MetaPixel from '../components/meta-pixel';
+import OlympusGoogleTag from '../components/olympus-google-tag';
 
 type Answers = Record<string, string>;
 type PartnerDetails = { valid: boolean; reason?: string; services?: Service[] };
@@ -136,7 +137,7 @@ export default function StartPage({ basePreview = false, plainTemplate = false }
     if (!/^\d{5}$/.test(form.zip_code)) return setError('Enter a valid five-digit ZIP code.');
 
     if (basePreview) {
-      window.sessionStorage.setItem('smart-homeowner-receipt', JSON.stringify({ leadId: 'SO-PREVIEW', contractor: 'Smart Homeowner', services: selectedServices, preview: true }));
+      window.sessionStorage.setItem('smart-homeowner-receipt', JSON.stringify({ leadId: 'SO-PREVIEW', contractor: 'Smart Homeowner', services: selectedServices, preview: true, partner }));
       router.replace('/thankyou');
       return;
     }
@@ -158,7 +159,7 @@ export default function StartPage({ basePreview = false, plainTemplate = false }
       const response = await fetch('/api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ partner, zipCode: form.zip_code, services: selectedServices, payload, attribution }) });
       const result = await response.json();
       if (!response.ok) return setError(result.message ?? 'We could not submit your request. Please try again.');
-      window.sessionStorage.setItem('smart-homeowner-receipt', JSON.stringify({ leadId: result.leadId, contractor: result.contractor, services: selectedServices }));
+      window.sessionStorage.setItem('smart-homeowner-receipt', JSON.stringify({ leadId: result.leadId, contractor: result.contractor, services: selectedServices, partner }));
       router.replace('/thankyou');
     } catch {
       setError('We could not submit your request. Please try again.');
@@ -170,7 +171,7 @@ export default function StartPage({ basePreview = false, plainTemplate = false }
   const renderQuestion = (question: { key: string; title: string; options: string[] }) => <section className="screen question-screen"><h1>{question.title}</h1><div className="choices">{question.options.map((option) => <button type="button" className={answers[question.key] === option ? 'choice selected' : 'choice'} key={option} onClick={() => chooseAnswer(question.key, option)}><span>{option}</span><ChevronRight /></button>)}</div></section>;
   const locationLabel = locationCity ? `${locationCity} homeowners` : 'Homeowners';
 
-  return <><MetaPixel event="PageView" /><main className={`app-shell ${basePreview || plainTemplate ? 'base-preview' : 'has-roof-background'}`}><header><Brand /><span className="secure"><ShieldCheck /> Secure request</span></header><div className="header-progress" role="progressbar" aria-label={`Request progress: ${progress}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></div><main className="content">{showIntro && <section className="landing-copy"><p>{locationLabel}</p><h2>Claim your free {estimateCopy} in a few quick steps.</h2></section>}<div className="funnel-card project-flow" aria-live="polite">
+  return <>{isOlympus && <OlympusGoogleTag />}<MetaPixel event="PageView" /><main className={`app-shell ${basePreview || plainTemplate ? 'base-preview' : 'has-roof-background'}`}><header><Brand /><span className="secure"><ShieldCheck /> Secure request</span></header><div className="header-progress" role="progressbar" aria-label={`Request progress: ${progress}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></div><main className="content">{showIntro && <section className="landing-copy"><p>{locationLabel}</p><h2>Claim your free {estimateCopy} in a few quick steps.</h2></section>}<div className="funnel-card project-flow" aria-live="polite">
     {loadingCampaign && <section className="screen loading-screen"><p>Loading your request…</p></section>}
     {!loadingCampaign && current === 'services' && partnerServices.length > 1 && <section className="screen"><h1>What can we help you with?</h1><div className="service-grid">{partnerServices.map((service) => { const Icon = serviceDetails[service].icon; const selected = selectedServices.includes(service); return <button type="button" className={selected ? 'service selected' : 'service'} key={service} onClick={() => toggleService(service)} aria-pressed={selected}><span className="service-icon"><Icon /></span><span><b>{service}</b><small>{serviceDetails[service].description}</small></span><span className="tick">{selected && <Check />}</span></button>; })}</div><button type="button" className="primary-action" onClick={continueServices}>Continue <ArrowRight /></button></section>}
     {!loadingCampaign && selectedQuestions.find((question) => question.key === current) && renderQuestion(selectedQuestions.find((question) => question.key === current)!)}
