@@ -19,8 +19,14 @@ const requestSchema = z.object({
   attribution: z.record(z.string(), z.string()).optional(),
 });
 
+export type RoofingLeadRecord = { leadId: string; deliveryId: string; contractorId: string; contractorName: string; partner: string };
+export type RoofingLeadStore = {
+  create(payload: z.infer<typeof payloadSchema>, attribution: Record<string, string>): Promise<RoofingLeadRecord>;
+  settle(record: RoofingLeadRecord, result: { ok: boolean; status?: number; error?: string }): Promise<void>;
+};
+
 // Inject the transport in tests; never send synthetic leads to the live webhook.
-export function createRoofingLeadHandler(transport: typeof fetch = fetch) {
+export function createRoofingLeadHandler(transport: typeof fetch = fetch, store?: RoofingLeadStore) {
   return async function POST(request: Request) {
     let input: unknown;
     try { input = await request.json(); }
@@ -35,28 +41,41 @@ export function createRoofingLeadHandler(transport: typeof fetch = fetch) {
       console.error('[roofing-leads] configuration_missing');
       return Response.json({ message: 'Lead submission is not configured. Please contact us directly.' }, { status: 503 });
     }
-    const leadId = crypto.randomUUID();
+    if (!store) return Response.json({ message: 'Lead storage is not configured. Please contact us directly.' }, { status: 503 });
+    let record: RoofingLeadRecord;
+    try { record = await store.create(payload, attribution); }
+    catch {
+      console.error('[roofing-leads] storage_failed');
+      return Response.json({ message: 'We could not save your request. Please try again.' }, { status: 503 });
+    }
+    const { leadId, contractorName, partner } = record;
+    async function recordDelivery(result: { ok: boolean; status?: number; error?: string }) {
+      try { await store!.settle(record, result); }
+      catch { console.error('[roofing-leads] delivery_status_update_failed', { leadId }); }
+    }
     const outgoing = {
       ...payload,
       lead_id: leadId,
-      partner: 'smart-homeowner',
-      contractor: 'Smart Homeowner',
+      partner,
+      contractor: contractorName,
       selected_service_names: 'Roofing',
       submitted_at: new Date().toISOString(),
-      smart_homeowner: { lead_id: leadId, partner: 'smart-homeowner', contractor: 'Smart Homeowner', selected_services: ['Roofing'], attribution },
+      smart_homeowner: { lead_id: leadId, partner, contractor: contractorName, selected_services: ['Roofing'], attribution },
     };
     try {
       const response = await transport(webhookUrl, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(outgoing), signal: AbortSignal.timeout(10_000),
       });
+      await recordDelivery({ ok: response.ok, status: response.status });
       if (!response.ok) {
         console.error('[roofing-leads] delivery_rejected', { leadId, status: response.status });
-        throw new Error('Delivery rejected');
+        return Response.json({ message: 'Your request is saved, but we could not send it to the team. Please try again.' }, { status: 502 });
       }
       console.info('[roofing-leads] delivery_accepted', { leadId, status: response.status });
-      return Response.json({ leadId, contractor: 'Smart Homeowner', deliveryStatus: 'sent' }, { status: 201 });
+      return Response.json({ leadId, contractor: contractorName, deliveryStatus: 'sent' }, { status: 201 });
     } catch (error) {
+      await recordDelivery({ ok: false, error: 'Webhook request failed' });
       console.error('[roofing-leads] delivery_failed', { leadId, kind: error instanceof Error ? error.name : 'UnknownError' });
       return Response.json({ message: 'We could not send your request. Please try again.' }, { status: 502 });
     }
