@@ -1,0 +1,7 @@
+# Generic roofing lead delivery
+
+The /roofing page now sends its existing readable quiz answers, contact fields and attribution to the server-only /api/roofing-leads endpoint. The endpoint validates the request and posts JSON to the supplied Smart Homeowner GHL inbound webhook. Errors keep the visitor on the form for retry. Only an accepted webhook response creates a successful receipt and redirects to /thankyou, where the existing Meta Pixel 1093509556922408 tracks Lead. Direct thank-you visits and preview receipts do not fire Lead. Partner campaign routing is unchanged.
+
+Set the supplied webhook as the required server-only SMART_HOMEOWNER_ROOFING_WEBHOOK_URL secret in the deployment environment. Without it, submission fails with 503. The URL is not committed to Git. For local end-to-end testing, point it to a disposable local receiver. Never send test contact data to production. Run regression checks with node --test tests/roofing-leads.test.mjs and run the project build.
+
+This generic path delivers directly to GHL; it does not add a Supabase backup. Existing partner paths still use Supabase. The previous generic page explicitly used basePreview, skipped the lead API and stored only a temporary receipt without contact details. Past generic-page submissions are therefore not recoverable from this implementation unless another external system independently captured them. A database check is required to determine whether other partner campaigns stored leads.
