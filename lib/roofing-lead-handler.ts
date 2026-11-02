@@ -31,7 +31,10 @@ export function createRoofingLeadHandler(transport: typeof fetch = fetch) {
     }
     const { payload, attribution = {} } = parsed.data;
     const webhookUrl = process.env.SMART_HOMEOWNER_ROOFING_WEBHOOK_URL;
-    if (!webhookUrl) return Response.json({ message: 'Lead submission is not configured. Please contact us directly.' }, { status: 503 });
+    if (!webhookUrl) {
+      console.error('[roofing-leads] configuration_missing');
+      return Response.json({ message: 'Lead submission is not configured. Please contact us directly.' }, { status: 503 });
+    }
     const leadId = crypto.randomUUID();
     const outgoing = {
       ...payload,
@@ -47,9 +50,14 @@ export function createRoofingLeadHandler(transport: typeof fetch = fetch) {
         method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(outgoing), signal: AbortSignal.timeout(10_000),
       });
-      if (!response.ok) throw new Error('Delivery rejected');
+      if (!response.ok) {
+        console.error('[roofing-leads] delivery_rejected', { leadId, status: response.status });
+        throw new Error('Delivery rejected');
+      }
+      console.info('[roofing-leads] delivery_accepted', { leadId, status: response.status });
       return Response.json({ leadId, contractor: 'Smart Homeowner', deliveryStatus: 'sent' }, { status: 201 });
-    } catch {
+    } catch (error) {
+      console.error('[roofing-leads] delivery_failed', { leadId, kind: error instanceof Error ? error.name : 'UnknownError' });
       return Response.json({ message: 'We could not send your request. Please try again.' }, { status: 502 });
     }
   };

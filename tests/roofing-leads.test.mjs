@@ -29,11 +29,11 @@ test('missing fbclid defaults to none', async()=>{
  let captured;const body=structuredClone(valid);delete body.payload.fbclid;
  await createRoofingLeadHandler(async(_,init)=>{captured=JSON.parse(init.body);return new Response('{}');})(request(body));assert.equal(captured.fbclid,'none');
 });
-test('generic route is live, success receipt activates existing Lead pixel and preview routes stay gated',async()=>{
+test('generic route is live and thank-you Lead pixel is unconditional',async()=>{
  const page=await readFile(new URL('../app/roofing/page.tsx',import.meta.url),'utf8');assert.match(page,/basePreview liveRoofing/);
  const form=await readFile(new URL('../app/components/start-funnel.tsx',import.meta.url),'utf8');assert.match(form,/basePreview && !liveRoofing/);assert.match(form,/liveRoofing \? '\/api\/roofing-leads' : '\/api\/leads'/);
  assert(form.indexOf('if (!response.ok)') < form.lastIndexOf("window.sessionStorage.setItem('smart-homeowner-receipt'"));
- const thanks=await readFile(new URL('../app/thankyou/page.tsx',import.meta.url),'utf8');assert.match(thanks,/receipt && !isPreview && <MetaPixel event="Lead"/);
+ const thanks=await readFile(new URL('../app/thankyou/page.tsx',import.meta.url),'utf8');assert.match(thanks,/<MetaPixel event="Lead" \/>/);assert(!thanks.includes('receipt && !isPreview && <MetaPixel'));
 });
 
 test('missing webhook configuration fails closed without sending', async()=>{ const old=process.env.SMART_HOMEOWNER_ROOFING_WEBHOOK_URL;delete process.env.SMART_HOMEOWNER_ROOFING_WEBHOOK_URL;try { const result=await createRoofingLeadHandler(async()=>{throw new Error('must not send')})(request());assert.equal(result.status,503); } finally {process.env.SMART_HOMEOWNER_ROOFING_WEBHOOK_URL=old;} });
