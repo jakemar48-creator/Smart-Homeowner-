@@ -1,5 +1,5 @@
-import StartPage from '../start/page';
+import StartPage from '../components/start-funnel';
 
-// The generic roofing funnel is the reusable, contractor-neutral entry point.
-// Partner routes (for example, /olympus) retain their own routing and webhook.
-export default function RoofingPage() { return <StartPage basePreview />; }
+// Keep the generic roofing presentation while delivering real leads to GHL.
+// Partner routes retain their existing contractor routing and webhooks.
+export default function RoofingPage() { return <StartPage basePreview liveRoofing />; }

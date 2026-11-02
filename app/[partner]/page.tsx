@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import StartPage from '../start/page';
+import StartPage from '../components/start-funnel';
 
 type PartnerPageProps = {
   params: Promise<{ partner: string }>;
