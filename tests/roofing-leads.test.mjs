@@ -37,3 +37,5 @@ test('generic route is live, success receipt activates existing Lead pixel and p
 });
 
 test('missing webhook configuration fails closed without sending', async()=>{ const old=process.env.SMART_HOMEOWNER_ROOFING_WEBHOOK_URL;delete process.env.SMART_HOMEOWNER_ROOFING_WEBHOOK_URL;try { const result=await createRoofingLeadHandler(async()=>{throw new Error('must not send')})(request());assert.equal(result.status,503); } finally {process.env.SMART_HOMEOWNER_ROOFING_WEBHOOK_URL=old;} });
+
+test('thank-you uses the requested simple message without a reference or partner panel', async()=>{const page=await readFile(new URL('../app/thankyou/page.tsx',import.meta.url),'utf8');assert(page.includes('We’ve received your request. A local team member will contact you shortly.'));assert(!page.includes('className="receipt"'));assert(!page.includes('Matched partner'));});
