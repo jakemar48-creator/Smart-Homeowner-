@@ -18,8 +18,7 @@ export default function ThankYouPage() {
     try { setReceipt(JSON.parse(stored) as Receipt); } catch { window.sessionStorage.removeItem('smart-homeowner-receipt'); }
   }, []);
 
-  // The live /roofing form sets a receipt only after GHL accepts the lead.
-  // Keep Lead tracking behind that receipt; previews and direct visits do not convert.
+  // Lead is a thank-you page-load event, including direct visits without a receipt.
   const isPreview = receipt?.preview === true;
-  return <>{receipt?.partner === 'olympus' && <OlympusGoogleTagManager />}{receipt && !isPreview && <MetaPixel event="Lead" />}<main className="app-shell"><header><Brand /></header><section className="success" aria-live="polite"><span className="success-icon"><Check /></span><p className="eyebrow">{isPreview ? 'FUNNEL PREVIEW' : 'REQUEST RECEIVED'}</p><h1>{isPreview ? 'Preview complete.' : 'You’re on the list.'}</h1><p>{isPreview ? 'This base Smart Homeowner version is for layout review only. It does not send a lead to a contractor.' : 'We’ve received your request. A local team member will contact you shortly.'}</p></section></main></>;
+  return <>{receipt?.partner === 'olympus' && <OlympusGoogleTagManager />}<MetaPixel event="Lead" /><main className="app-shell"><header><Brand /></header><section className="success" aria-live="polite"><span className="success-icon"><Check /></span><p className="eyebrow">{isPreview ? 'FUNNEL PREVIEW' : 'REQUEST RECEIVED'}</p><h1>{isPreview ? 'Preview complete.' : 'You’re on the list.'}</h1><p>{isPreview ? 'This base Smart Homeowner version is for layout review only. It does not send a lead to a contractor.' : 'We’ve received your request. A local team member will contact you shortly.'}</p></section></main></>;
 }
