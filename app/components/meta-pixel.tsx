@@ -2,7 +2,7 @@
 
 import Script from 'next/script';
 
-const PIXEL_ID = '1093509556922408';
+const PIXEL_ID = '29610540228543856';
 
 export default function MetaPixel({ event }: { event: 'PageView' | 'Lead' }) {
   return <>
